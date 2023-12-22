@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 SCRIPTNAME=$(basename $0)
 SCRIPTDIR=$(dirname $(realpath $0))
@@ -6,6 +7,7 @@ VERBOSITY_LEVEL=0
 
 DEFAULT_ETCDIR=/tmp/orage_ports_poudriere.d
 DEFAULT_POUDRIERE_D="$SCRIPTIDR/poudriere.d"
+DEFAULT_SET=workstation
 
 log() {
     LVL=$1
@@ -33,6 +35,17 @@ dbg() {
 }
 _cmd() {
     log 3 CMD $LOG_STDOUT $*
+}
+cmd() {
+    COMMAND=$*
+    _cmd "$COMMAND"
+    eval $COMMAND > /dev/null
+    ret=$?
+    if [ $ret -ne 0 ] ; then
+        err "$COMMAND"
+        err "Failed with code $ret"
+        exit 3
+    fi
 }
 crt_invalid_command_line() {
     err "Invalid command line: $*"
@@ -87,7 +100,6 @@ help() {
 }
 
 install_configuration_directory() {
-    local make_conf_path="$ETCDIR/make.conf"
     dbg "Install configuration directory from $DEFAULT_POUDRIERE_D into $ETCDIR"
     if [ -f "$ETCDIR" ] ; then
         wrn "Remove previous content in $ETCDIR"
@@ -99,8 +111,6 @@ install_configuration_directory() {
     else
         cmd cp -R $DEFAULT_POUDRIERE_D $ETCDIR
     fi
-    dbg "Install global make.conf from $GLOBAL_MAKE_CONF into $make_conf_path"
-    cmd cp $GLOBAL_MAKE_CONF $make_conf_path
     inf "$ETCDIR is ready to proceed"
 }
 
@@ -122,7 +132,6 @@ command_build() {
 }
 command_configure() {
     local ports=$*
-    local make_conf_path="$ETCDIR/make.conf"
     check_argument_count 1 $*
     dbg "Configure ports $ports"
     install_configuration_directory
@@ -141,8 +150,6 @@ command_configure() {
         done
     done
     dbg "Import configuration from $ETCDIR into $DEFAULT_POUDRIERE_D"
-    # No need to import make.conf
-    cmd rm $make_conf_path
     cmd rm -rf $DEFAULT_POUDRIERE_D
     cmd cp -R $ETCDIR $DEFAULT_POUDRIERE_D
 }
@@ -164,11 +171,6 @@ command_list() {
         *) crt_invalid_command_line "Unknown list command $COMMAND" ;;
     esac
 }
-
-if [ $(id -u) -ne 0 ] ; then
-    err "Must be root"
-    exit 1
-fi
 
 FORCE=0
 ETCDIR=$DEFAULT_ETCDIR
@@ -211,12 +213,8 @@ else
 fi
 EVERY_SET=$(command_list_set)
 if [ "$SETS_CHOICES" = "" ] ; then
-    dbg "No set in parameters, work on every sets"
-    SETS_CHOICES=$EVERY_SET
-else
-    for j in $SETS_CHOICES ; do
-        test ! is_in_list $j "$EVERY_SET" && err "Unknown set $j" ; exit 1
-    done
+    wrn "Use default set $DEFAULT_SET"
+    SETS_CHOICES="$DEFAULT_SET"
 fi
 
 case $COMMAND in
