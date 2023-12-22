@@ -93,7 +93,12 @@ install_configuration_directory() {
         wrn "Remove previous content in $ETCDIR"
         cmd rm -rf $ETCDIR
     fi
-    cmd cp -R $DEFAULT_POUDRIERE_D $ETCDIR
+    if [ ! -d $DEFAULT_POUDRIERE_D ] ; then
+        wrn "$DEFAULT_POUDRIERE_D does not exists yet, create an empty configuration directory"
+        cmd mkdir -p $ETCDIR
+    else
+        cmd cp -R $DEFAULT_POUDRIERE_D $ETCDIR
+    fi
     dbg "Install global make.conf from $GLOBAL_MAKE_CONF into $make_conf_path"
     cmd cp $GLOBAL_MAKE_CONF $make_conf_path
     inf "$ETCDIR is ready to proceed"
@@ -159,6 +164,11 @@ command_list() {
         *) crt_invalid_command_line "Unknown list command $COMMAND" ;;
     esac
 }
+
+if [ $(id -u) -ne 0 ] ; then
+    err "Must be root"
+    exit 1
+fi
 
 FORCE=0
 ETCDIR=$DEFAULT_ETCDIR
