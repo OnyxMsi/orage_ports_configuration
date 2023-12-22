@@ -5,8 +5,11 @@ SCRIPTNAME=$(basename $0)
 SCRIPTDIR=$(dirname $(realpath $0))
 VERBOSITY_LEVEL=0
 
-DEFAULT_ETCDIR=/tmp/orage_ports_poudriere.d
-DEFAULT_POUDRIERE_D="$SCRIPTIDR/poudriere.d"
+SYSTEM_ETC=/usr/local/etc
+SYSTEM_POUDRIERE_D="$SYSTEM_ETC/poudriere.d"
+SYSTEM_POUDRIERE_CONF="$SYSTEM_ETC/poudriere.conf"
+DEFAULT_ETCDIR=/tmp/etcdir
+DEFAULT_POUDRIERE_D="${SCRIPTIDR:-.}/poudriere.d"
 DEFAULT_SET=workstation
 
 log() {
@@ -101,15 +104,19 @@ help() {
 
 install_configuration_directory() {
     dbg "Install configuration directory from $DEFAULT_POUDRIERE_D into $ETCDIR"
-    if [ -f "$ETCDIR" ] ; then
+    if [ -e "$ETCDIR" ] ; then
         wrn "Remove previous content in $ETCDIR"
         cmd rm -rf $ETCDIR
     fi
-    if [ ! -d $DEFAULT_POUDRIERE_D ] ; then
-        wrn "$DEFAULT_POUDRIERE_D does not exists yet, create an empty configuration directory"
-        cmd mkdir -p $ETCDIR
-    else
-        cmd cp -R $DEFAULT_POUDRIERE_D $ETCDIR
+    dbg "Create configuration directory $ETCDIR"
+    cmd mkdir -p $ETCDIR
+    # First thing is to use system configuration
+    dbg "Import system poudriere.conf from $SYSTEM_POUDRIERE_CONF"
+    cmd cp $SYSTEM_POUDRIERE_CONF $ETCDIR/
+    dbg "Import system poudriere.d from $SYSTEM_POUDRIERE_D"
+    cmd cp -R $SYSTEM_POUDRIERE_D $ETCDIR/
+    if [ -d $DEFAULT_POUDRIERE_D ] ; then
+        cmd cp -R $DEFAULT_POUDRIERE_D/* $ETCDIR/poudriere.d/
     fi
     inf "$ETCDIR is ready to proceed"
 }
@@ -123,7 +130,7 @@ command_build() {
         for t in $TREES_CHOICES ; do
             for s in $SETS_CHOICES ; do
                 dbg "Build ports on jail $j from ports tree $t using set $s"
-                cmd poudriere bulk -j $j -p $t -z $s $ports
+                cmd poudriere -e $ETCDIR bulk -j $j -p $t -z $s $ports
                 inf "Ports built on jail $j from ports tree $t using set $s"
             done
         done
@@ -141,9 +148,9 @@ command_configure() {
             for s in $SETS_CHOICES ; do
                 dbg "Configure ports on jail $j from ports tree $t using set $s"
                 if [ $FORCE -ne 0 ] ; then
-                    cmd poudriere bulk -j $j -p $t -z $s -r $ports
+                    cmd poudriere -e $ETCDIR options -j $j -p $t -z $s -r $ports
                 else
-                    cmd poudriere bulk -j $j -p $t -z $s $ports
+                    cmd poudriere -e $ETCDIR options -j $j -p $t -z $s $ports
                 fi
                 inf "Ports were configured on jail $j from ports tree $t using set $s"
             done
@@ -157,7 +164,7 @@ command_list_jail() {
     poudriere jail -l | cut -f 1 -d " "
 }
 command_list_tree() {
-    poudriere tree -l | cut -f 1 -d " "
+    poudriere ports -l | cut -f 1 -d " "
 }
 command_list() {
     if [ $# -lt 1 ] ; then
@@ -211,7 +218,6 @@ else
         test ! is_in_list $j "$EVERY_TREE" && err "Unknown tree $j" ; exit 1
     done
 fi
-EVERY_SET=$(command_list_set)
 if [ "$SETS_CHOICES" = "" ] ; then
     wrn "Use default set $DEFAULT_SET"
     SETS_CHOICES="$DEFAULT_SET"
