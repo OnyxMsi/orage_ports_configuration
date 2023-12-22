@@ -139,10 +139,13 @@ command_build() {
 }
 command_configure() {
     local ports=$*
+    local dirname
+    local repo_dir
+    local etc_dir
     check_argument_count 1 $*
     dbg "Configure ports $ports"
     install_configuration_directory
-    wrn "Force is set, previous configuration will be overwritten"
+    [ $FORCE -ne 0 ] && wrn "Force is set, previous configuration will be overwritten"
     for j in $JAILS_CHOICES ; do
         for t in $TREES_CHOICES ; do
             for s in $SETS_CHOICES ; do
@@ -153,6 +156,15 @@ command_configure() {
                     cmd poudriere -e $ETCDIR options -j $j -p $t -z $s $ports
                 fi
                 inf "Ports were configured on jail $j from ports tree $t using set $s"
+                dirname="$j-$t-$s-options"
+                repo_dir="$DEFAULT_POUDRIERE_D/$dirname"
+                etc_dir="$ETCDIR/poudriere.d/$dirname"
+                if [ -e $repo_dir ] ; then
+                    dbg "Remove previous configuration for $j $t $s at $repo_dir"
+                    cmd rm -rf $repo_dir
+                fi
+                dbg "Import configuration from $etc_dir into $repo_dir"
+                cmd cp -R $etc_dir $repo_dir
             done
         done
     done
