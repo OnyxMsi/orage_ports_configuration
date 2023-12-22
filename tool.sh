@@ -11,8 +11,8 @@ SYSTEM_POUDRIERE_CONF="$SYSTEM_ETC/poudriere.conf"
 DEFAULT_ETCDIR=/tmp/etcdir
 DEFAULT_POUDRIERE_D="${SCRIPTIDR:-.}/poudriere.d"
 DEFAULT_SET=workstation
-CURRENT_USER=$(id -n -u)
-CURRENT_GROUP=$(id -g -u)
+CURRENT_USER=$(id -u -n)
+CURRENT_GROUP=$(id -g -n)
 
 log() {
     LVL=$1
@@ -108,7 +108,7 @@ install_configuration_directory() {
     dbg "Install configuration directory from $DEFAULT_POUDRIERE_D into $ETCDIR"
     if [ -e "$ETCDIR" ] ; then
         wrn "Remove previous content in $ETCDIR"
-        cmd rm -rf $ETCDIR
+        cmd sudo rm -rf $ETCDIR
     fi
     dbg "Create configuration directory $ETCDIR"
     cmd mkdir -p $ETCDIR
@@ -159,7 +159,7 @@ command_configure() {
                 fi
                 inf "Ports were configured on jail $j from ports tree $t using set $s"
                 # Make sure current user has permissions to copy this
-                cmd chown -R $CURRENT_USER:$CURRENT_GROUP $ETCDIR
+                cmd sudo chown -R $CURRENT_USER:$CURRENT_GROUP $ETCDIR
                 dirname="$j-$t-$s-options"
                 repo_dir="$DEFAULT_POUDRIERE_D/$dirname"
                 etc_dir="$ETCDIR/poudriere.d/$dirname"
