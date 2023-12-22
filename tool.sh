@@ -11,6 +11,8 @@ SYSTEM_POUDRIERE_CONF="$SYSTEM_ETC/poudriere.conf"
 DEFAULT_ETCDIR=/tmp/etcdir
 DEFAULT_POUDRIERE_D="${SCRIPTIDR:-.}/poudriere.d"
 DEFAULT_SET=workstation
+CURRENT_USER=$(id -n -u)
+CURRENT_GROUP=$(id -g -u)
 
 log() {
     LVL=$1
@@ -130,7 +132,7 @@ command_build() {
         for t in $TREES_CHOICES ; do
             for s in $SETS_CHOICES ; do
                 dbg "Build ports on jail $j from ports tree $t using set $s"
-                cmd poudriere -e $ETCDIR bulk -j $j -p $t -z $s $ports
+                cmd sudo poudriere -e $ETCDIR bulk -j $j -p $t -z $s $ports
                 inf "Ports built on jail $j from ports tree $t using set $s"
             done
         done
@@ -151,11 +153,13 @@ command_configure() {
             for s in $SETS_CHOICES ; do
                 dbg "Configure ports on jail $j from ports tree $t using set $s"
                 if [ $FORCE -ne 0 ] ; then
-                    cmd poudriere -e $ETCDIR options -j $j -p $t -z $s -r $ports
+                    cmd sudo poudriere -e $ETCDIR options -j $j -p $t -z $s -r $ports
                 else
-                    cmd poudriere -e $ETCDIR options -j $j -p $t -z $s $ports
+                    cmd sudo poudriere -e $ETCDIR options -j $j -p $t -z $s $ports
                 fi
                 inf "Ports were configured on jail $j from ports tree $t using set $s"
+                # Make sure current user has permissions to copy this
+                cmd chown -R $CURRENT_USER:$CURRENT_GROUP $ETCDIR
                 dirname="$j-$t-$s-options"
                 repo_dir="$DEFAULT_POUDRIERE_D/$dirname"
                 etc_dir="$ETCDIR/poudriere.d/$dirname"
@@ -168,9 +172,6 @@ command_configure() {
             done
         done
     done
-    dbg "Import configuration from $ETCDIR into $DEFAULT_POUDRIERE_D"
-    cmd rm -rf $DEFAULT_POUDRIERE_D
-    cmd cp -R $ETCDIR $DEFAULT_POUDRIERE_D
 }
 command_list_jail() {
     poudriere jail -l | cut -f 1 -d " "
