@@ -9,7 +9,7 @@ SYSTEM_ETC=/usr/local/etc
 SYSTEM_POUDRIERE_D="$SYSTEM_ETC/poudriere.d"
 SYSTEM_POUDRIERE_CONF="$SYSTEM_ETC/poudriere.conf"
 DEFAULT_ETCDIR=/tmp/etcdir
-DEFAULT_POUDRIERE_D="${SCRIPTIDR:-.}/poudriere.d"
+DEFAULT_POUDRIERE_D="$SCRIPTDIR/poudriere.d"
 DEFAULT_SET=workstation
 CURRENT_USER=$(id -u -n)
 CURRENT_GROUP=$(id -g -n)
@@ -19,7 +19,7 @@ log() {
     HDR=$2
     OUT=$3
     shift 3
-    [ $VERBOSITY_LEVEL -ge $LVL ] && echo "$SCRIPTNAME [$HDR] $*" >> $OUT
+    [ $VERBOSITY_LEVEL -ge $LVL ] && echo "$SCRIPTNAME [$HDR] $*" >> $OUT || /usr/bin/true
 }
 
 LOG_STDOUT=/dev/stdout
@@ -44,8 +44,10 @@ _cmd() {
 cmd() {
     COMMAND=$*
     _cmd "$COMMAND"
+    set +e
     eval $COMMAND > /dev/null
     ret=$?
+    set -e
     if [ $ret -ne 0 ] ; then
         err "$COMMAND"
         err "Failed with code $ret"
@@ -195,18 +197,18 @@ command_list() {
 FORCE=0
 ETCDIR=$DEFAULT_ETCDIR
 while getopts hve:j:t:w: ARG ; do
-    shift
     case "$ARG" in
         h) help ; exit 0;;
-        j) JAILS_CHOICES="$JAILS_CHOICES $1" ; shift ;;
-        t) TREES_CHOICES="$TREES_CHOICES $1" ; shift ;;
-        s) SETS_CHOICES="$SETS_CHOICES $1" ; shift ;;
+        j) shift ; JAILS_CHOICES="$JAILS_CHOICES $1" ;;
+        t) shift ; TREES_CHOICES="$TREES_CHOICES $1" ;;
+        s) shift ; SETS_CHOICES="$SETS_CHOICES $1" ;;
         v) VERBOSITY_LEVEL=$(($VERBOSITY_LEVEL + 1)) ;;
         f) FORCE=1 ;;
-        e) ETCDIR=$1 ; shift ;;
+        e) shift ; ETCDIR=$1 ;;
         --) break ;;
         *) crt_invalid_command_line "Unknown option $ARG" ;;
     esac
+    shift
 done
 if [ $# -lt 1 ] ; then
     crt_invalid_command_line "No command, see help"
