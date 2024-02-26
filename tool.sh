@@ -196,7 +196,7 @@ command_list() {
 
 FORCE=0
 ETCDIR=$DEFAULT_ETCDIR
-while getopts hve:j:t:w: ARG ; do
+while getopts hve:j:t:w:f ARG ; do
     case "$ARG" in
         h) help ; exit 0;;
         j) shift ; JAILS_CHOICES="$JAILS_CHOICES $1" ;;
